@@ -80,10 +80,74 @@ const deleteTodo = async (formData: FormData) => {
   revalidatePath("/");
 };
 
+const toggleTodo = async (formData: FormData) => {
+  const id = formData.get("id") as string;
+  const isCompleted = formData.get("is_completed") === "true";
+
+  if (!id) {
+    throw new Error("Todo ID is required");
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    console.error(`fetch user data failed with: ${userError}`);
+    redirect("/login");
+  }
+
+  const { error } = await supabase
+    .from("todos")
+    .update({ is_completed: !isCompleted })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error occurred while toggling todo:", error.message);
+    throw new Error("Failed to toggle todo");
+  }
+
+  revalidatePath("/");
+};
+
 const signOut = async () => {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/");
 };
 
-export { createTodo, deleteTodo, signOut };
+const deleteCompletedTodos = async () => {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    console.error(`fetch user data failed with: ${userError}`);
+    redirect("/login");
+  }
+
+  const { error } = await supabase
+    .from("todos")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("is_completed", true);
+
+  if (error) {
+    console.error(
+      "Error occurred while deleting completed todos:",
+      error.message
+    );
+    throw new Error("Failed to delete completed todos");
+  }
+
+  revalidatePath("/");
+};
+
+export { createTodo, deleteTodo, toggleTodo, signOut, deleteCompletedTodos };

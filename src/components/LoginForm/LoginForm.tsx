@@ -1,5 +1,3 @@
-"use client";
-
 import { signInWithGoogle } from "@/components/LoginForm/actions";
 
 export default function LoginForm() {
