@@ -6,7 +6,8 @@ export interface Todo {
   created_at: string;
 }
 
-export interface CreateTodoInput {
+export interface CreateTodo {
   title: string;
   user_id?: string;
+  is_completed: boolean;
 }

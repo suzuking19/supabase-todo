@@ -1,6 +1,7 @@
-import { signOut, createTodo } from "./actions";
+import { signOut, createTodo, deleteTodo } from "./actions";
 import { createClient } from "@/utils/supabase/server";
 import { Todo } from "@/types/todo";
+import { redirect } from "next/navigation";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -12,11 +13,10 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    console.error("ユーザー認証エラー:", userError);
-    return <div>認証が必要です</div>;
+    console.error("Auth Error with :", userError);
+    redirect("/login");
   }
 
-  // ユーザーのTODOのみを取得
   const { data: todos, error } = await supabase
     .from("todos")
     .select("*")
@@ -68,7 +68,6 @@ export default async function Home() {
             </form>
           </div>
 
-          {/* Todoリストセクション */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-medium text-gray-900">タスク一覧</h2>
@@ -85,7 +84,10 @@ export default async function Home() {
                         {todo.title}
                       </span>
                       <div className="text-xs text-gray-400">
-                        {/* 将来的に完了ボタンや削除ボタンを追加する場合のスペース */}
+                        <form action={deleteTodo}>
+                          <input type="hidden" name="id" value={todo.id} />
+                          <button type="submit">削除</button>
+                        </form>
                       </div>
                     </div>
                   </li>

@@ -1,22 +1,22 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { CreateTodoInput } from "@/types/todo";
-
-const signOut = async () => {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect("/");
-};
+import { createClient } from "@/utils/supabase/server";
+import { CreateTodo } from "@/types";
+import { CreateTodoSchema } from "@/libs/schemas";
 
 const createTodo = async (formData: FormData) => {
   const title = formData.get("title") as string;
 
-  if (!title?.trim()) {
-    console.error("タイトルが入力されていません");
-    throw new Error("タイトルが入力されていません");
+  const validationResult = CreateTodoSchema.safeParse({ title });
+
+  if (!validationResult.success) {
+    const formattedErrors = validationResult.error.format();
+    console.error("Validation error:", formattedErrors);
+
+    const titleError = formattedErrors.title?._errors?.[0];
+    throw new Error(titleError || "Invalid input data");
   }
 
   const supabase = await createClient();
@@ -31,17 +31,59 @@ const createTodo = async (formData: FormData) => {
     redirect("/login");
   }
 
-  const todoData: CreateTodoInput = { title: title.trim(), user_id: user.id };
+  const todoData: CreateTodo = {
+    title: validationResult.data.title,
+    user_id: user.id,
+    is_completed: false,
+  };
 
   const { error } = await supabase.from("todos").insert(todoData);
 
   if (error) {
-    console.error("Todoの作成中にエラーが発生しました:", error.message);
-    throw new Error("Todoの作成に失敗しました");
+    console.error("Error occurred while creating todo:", error.message);
+    throw new Error("Failed to create todo");
   }
 
-  // 成功時のみrevalidatePathを実行
   revalidatePath("/");
 };
 
-export { signOut, createTodo };
+const deleteTodo = async (formData: FormData) => {
+  const id = formData.get("id") as string;
+
+  if (!id) {
+    throw new Error("Todo ID is required");
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    console.error(`fetch user data failed with: ${userError}`);
+    redirect("/login");
+  }
+
+  const { error } = await supabase
+    .from("todos")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error occurred while deleting todo:", error.message);
+    throw new Error("Failed to delete todo");
+  }
+
+  revalidatePath("/");
+};
+
+const signOut = async () => {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/");
+};
+
+export { createTodo, deleteTodo, signOut };
